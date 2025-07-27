@@ -14,6 +14,9 @@ type DNSValidationResult struct {
 	HasMX       bool
 	HasSPF      bool
 	HasDMARC    bool
+	IsParked    bool
+	ARecords    []string
+	NSRecords   []string
 	MXRecords   []MXRecord
 	SPFRecord   string
 	DMARCRecord string

@@ -81,6 +81,47 @@ func (c *Client) GetDNSValidation(ctx context.Context, domain string) (*emailche
 	g, ctx := errgroup.WithContext(ctx)
 
 	g.Go(func() error {
+		reps, err := c.Lookup(ctx, domain, "A")
+		if err != nil {
+			return err
+		}
+
+		if reps.Status == 0 && len(reps.Answer) > 0 {
+			mu.Lock()
+			defer mu.Unlock()
+			for _, ans := range reps.Answer {
+				if ans.Type == 1 {
+					result.ARecords = append(result.ARecords, ans.Data)
+				}
+			}
+		}
+
+		return nil
+	})
+
+	g.Go(func() error {
+		resp, err := c.Lookup(ctx, domain, "NS")
+		if err != nil {
+			return err
+		}
+
+		if resp.Status == 0 && len(resp.Answer) > 0 {
+			mu.Lock()
+			defer mu.Unlock()
+			for _, ans := range resp.Answer {
+				if ans.Type == 2 {
+					result.NSRecords = append(result.NSRecords, ans.Data)
+					if isParkedDomainNs(ans.Data) {
+						result.IsParked = true
+					}
+				}
+			}
+		}
+
+		return nil
+	})
+
+	g.Go(func() error {
 		resp, err := c.Lookup(ctx, domain, "MX")
 		if err != nil {
 			return err

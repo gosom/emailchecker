@@ -28,6 +28,8 @@ const (
 	ReasonNoSupiciousSignalsDetected         = "No suspicious signals detected"
 	ReasonEducationalInstitutionDomain       = "Email from educational institution domain"
 	ReasonStudentIDStaffIDPatternDetected    = "Student/Staff ID pattern detected"
+	ReasonParkedDomain                       = "Domain is parked or inactive"
+	ReasonTooStrictSPFPolicy                 = "Domain has too strict SPF policy"
 )
 
 type Analyzer struct{}
@@ -48,6 +50,7 @@ func (a *Analyzer) Analyze(ctx context.Context, result *emailchecker.EmailCheckR
 		report.Score = 1.0
 		report.RiskLevel = emailchecker.RiskLevelHigh
 		report.Reasons = append(report.Reasons, ReasonDisposableBlocked)
+
 		return report
 	}
 
@@ -55,6 +58,15 @@ func (a *Analyzer) Analyze(ctx context.Context, result *emailchecker.EmailCheckR
 		report.Score = 1.0
 		report.RiskLevel = emailchecker.RiskLevelHigh
 		report.Reasons = append(report.Reasons, ReasonDomainCannotReceiveEmail)
+
+		return report
+	}
+
+	if result.DNS.Checked && result.DNS.Value.IsParked {
+		report.Score = 1.0
+		report.RiskLevel = emailchecker.RiskLevelHigh
+		report.Reasons = append(report.Reasons, ReasonParkedDomain)
+
 		return report
 	}
 

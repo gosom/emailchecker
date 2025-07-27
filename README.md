@@ -118,6 +118,4 @@ curl "http://localhost:8080/check?email=user@example.com"
 * **Risk analysis** with detailed reasoning
 * **Educational domain detection** for universities and schools
 * **Pattern analysis** to detect automated/bot registrations
-
-## TODO
 * **Parked Domains Check** to check if the domain is  "parked"
