@@ -1,8 +1,6 @@
 # Email Checker
 
-A Go tool for validating and analyzing email addresses.
-
-This is still Work In Progress
+A Go tool for validating and analyzing email addresses to detect disposable emails, suspicious patterns, and assess deliverability.
 
 ## What it does
 
@@ -10,7 +8,26 @@ This is still Work In Progress
 - **Detects disposable emails** - identifies temporary/throwaway email providers  
 - **Analyzes email patterns** - finds suspicious or bot-generated emails
 - **Checks domain reputation** - verifies against well-known and educational domains
-- **Risk scoring** - provides low/medium/high risk assessment
+- **Risk scoring** - provides low/medium/high risk assessment with detailed reasoning
+
+## Try it online
+
+Test the API at: `https://emailcheck-api.thexos.dev/check/{email}`
+
+Example: https://emailcheck-api.thexos.dev/check/test@gmail.com
+
+(some rate limits apply)
+
+## Features
+
+- Fast concurrent processing for bulk email validation
+- SQLite database for caching DNS records and domain lists
+- Automatic updates for disposable email and domain lists (every 13 hours)
+- Risk analysis with detailed reasoning
+- Educational domain detection for universities and schools
+- Pattern analysis to detect automated/bot registrations
+- Parked domain detection to identify inactive domains
+- HTTP API with JSON responses
 
 ## Installation
 
@@ -33,74 +50,105 @@ This is still Work In Progress
 ./checker check --file emails.txt
 ```
 
+### Check emails from stdin
+
+```bash
+echo "user@example.com" | ./checker check --stdin
+```
+
 ### Start HTTP server
 
 ```bash
-./checker server --port 8080
+./checker server --port :8080
 ```
+
+OR
+
+#### Docker
+
+```bash
+docker build -t email-checker .
+docker run -p 8080:8080 email-checker
+```
+
 
 Then check emails via HTTP:
 
 ```bash
-curl "http://localhost:8080/check?email=user@example.com"
+curl "http://localhost:8080/check/user@example.com"
+```
+
+### Update database manually
+
+```bash
+./checker update
 ```
 
 ### Example Output
 
 ```json
 {
-  "Email": "jakezopa@forexzig.com",
-  "Disposable": {
-    "Checked": true,
-    "Value": true,
-    "Err": null,
-    "Elapsed": 560441
+  "email": "test@forexzig.com",
+  "disposable": {
+    "checked": true,
+    "value": true,
+    "error": null,
+    "elapsed": 4650774
   },
-  "WellKnown": {
-    "Checked": true,
-    "Value": false,
-    "Err": null,
-    "Elapsed": 465260
+  "well_known": {
+    "checked": true,
+    "value": false,
+    "error": null,
+    "elapsed": 1221592
   },
-  "Educational": {
-    "Checked": true,
-    "Value": false,
-    "Err": null,
-    "Elapsed": 372870
+  "educational": {
+    "checked": true,
+    "value": false,
+    "error": null,
+    "elapsed": 3656926
   },
-  "DNS": {
-    "Checked": true,
-    "Value": {
-      "Domain": "forexzig.com",
-      "HasMX": true,
-      "HasSPF": false,
-      "HasDMARC": false,
-      "MXRecords": [
+  "dns": {
+    "checked": true,
+    "value": {
+      "domain": "forexzig.com",
+      "has_mx": true,
+      "has_spf": false,
+      "has_dmarc": false,
+      "is_parked": false,
+      "a_records": [
+        "172.67.177.120",
+        "104.21.75.139"
+      ],
+      "ns_records": [
+        "adel.ns.cloudflare.com.",
+        "nitin.ns.cloudflare.com."
+      ],
+      "mx_records": [
         {
-          "Value": "mx2.den.yt.",
-          "Priority": 10,
-          "Disposable": true
+          "value": "mx2.den.yt.",
+          "priority": 10,
+          "disposable": true
         }
       ],
-      "SPFRecord": "",
-      "DMARCRecord": ""
+      "spf_record": "",
+      "dmarc_record": ""
     },
-    "Err": null,
-    "Elapsed": 39309592
+    "error": null,
+    "elapsed": 35069721
   },
-  "Elapsed": 39527786,
-  "Pattern": {
-    "Checked": true,
-    "Value": {
-      "ShortLocalPart": false,
-      "HasRandomPattern": false,
-      "TooManyConsecutiveNumbers": false,
-      "TooManySpecialChars": false
+  "elapsed": 35131609,
+  "pattern": {
+    "checked": true,
+    "value": {
+      "short_local_part": false,
+      "has_random_pattern": false,
+      "too_many_consecutive_numbers": false,
+      "too_many_special_chars": false
     },
-    "Err": null,
-    "Elapsed": 122612
+    "error": null,
+    "elapsed": 28608
   },
-  "Analysis": {
+  "prediction": {
     "risk_level": "high",
     "score": 1,
     "reasons": [
@@ -109,13 +157,3 @@ curl "http://localhost:8080/check?email=user@example.com"
   }
 }
 ```
-
-## Features
-
-* **Fast concurrent processing** for bulk email validation
-* **SQLite database** for caching DNS records and domain lists
-* **Automatic updates** for disposable email and domain lists
-* **Risk analysis** with detailed reasoning
-* **Educational domain detection** for universities and schools
-* **Pattern analysis** to detect automated/bot registrations
-* **Parked Domains Check** to check if the domain is  "parked"
