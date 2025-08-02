@@ -1,0 +1,17 @@
+name: email-checker
+services:
+- name: api
+  source_dir: /
+  github:
+    repo: gosom/emailchecker
+    branch: main
+  run_command: ./checker server --port :8080
+  environment_slug: docker
+  instance_count: 1
+  instance_size_slug: basic-xxs
+  http_port: 8080
+  routes:
+  - path: /
+  envs:
+  - key: EMAIL_CHECKER_DB_PATH
+    value: /app/data/checker.db
