@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"emailchecker/api/handlers"
+	"emailchecker/api/handlers/middleware"
 	"emailchecker/pkg/httpext"
 	"emailchecker/pkg/httpmiddleware"
 
@@ -57,6 +58,7 @@ func (s *Server) setupRoutes() {
 	s.router.Use(httpmiddleware.Logging(
 		httpmiddleware.SkipRequestBodyLogging(),
 	),
+		middleware.HostValidation,
 	)
 
 	s.router.NotFound(httpmiddleware.Handler(s.opsHandler.NotFound))
