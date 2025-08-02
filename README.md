@@ -12,6 +12,7 @@ A Go tool for validating and analyzing email addresses to detect disposable emai
 
 ## Try it online
 
+Use the UI at: `https://emailcheck-api.thexos.dev/`
 Test the API at: `https://emailcheck-api.thexos.dev/check/{email}`
 
 Example: https://emailcheck-api.thexos.dev/check/test@gmail.com
