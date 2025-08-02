@@ -5,10 +5,9 @@ services:
   github:
     repo: gosom/emailchecker
     branch: main
-  run_command: ./checker server --port :8080
   environment_slug: docker
   instance_count: 1
-  instance_size_slug: basic-xxs
+  instance_size_slug: apps-s-1vcpu-0.5gb
   http_port: 8080
   routes:
   - path: /
