@@ -246,7 +246,7 @@ func (h *HTTPServer) gracefulShutdown(ctx context.Context) {
 
 	if err := h.srv.Shutdown(shutdownCtx); err != nil {
 		log.Error(ctx, fmt.Errorf("graceful shutdown failed: %w", err))
-		h.srv.Close()
+		_ = h.srv.Close()
 	}
 
 	log.Info(ctx, "Graceful shutdown complete")

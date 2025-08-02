@@ -15,10 +15,9 @@ type repo interface {
 }
 
 type inFlightRequest struct {
-	wg   sync.WaitGroup
-	repo repo
-	res  *emailchecker.DNSValidationResult
-	err  error
+	wg  sync.WaitGroup
+	res *emailchecker.DNSValidationResult
+	err error
 }
 
 type Resolver struct {

@@ -5,12 +5,11 @@ services:
   github:
     repo: gosom/emailchecker
     branch: main
+    deploy_on_push: true
   environment_slug: docker
   instance_count: 1
   instance_size_slug: apps-s-1vcpu-0.5gb
   http_port: 8080
-  routes:
-  - path: /
   envs:
   - key: EMAIL_CHECKER_DB_PATH
     value: /app/data/checker.db

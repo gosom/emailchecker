@@ -61,7 +61,7 @@ func (c *Client) Lookup(ctx context.Context, domain, recordType string) (*Cloudf
 	}
 	defer func() {
 		_, _ = io.Copy(io.Discard, resp.Body)
-		defer resp.Body.Close()
+		_ = resp.Body.Close()
 	}()
 
 	if resp.StatusCode != http.StatusOK {

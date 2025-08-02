@@ -92,7 +92,7 @@ func checkEmails(c *cli.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to create checker: %v", err)
 	}
-	defer checker.Close()
+	defer checker.Close() //nolint:errcheck
 
 	var emails []string
 
@@ -141,7 +141,7 @@ func startServer(c *cli.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to create checker: %v", err)
 	}
-	defer checker.Close()
+	defer checker.Close() //nolint:errcheck
 
 	srvOpts := []httpext.Option{
 		httpext.WithAddr(c.String("port")),
@@ -186,7 +186,7 @@ func updateDatabase(c *cli.Context) error {
 	if err != nil {
 		return fmt.Errorf("failed to create checker: %v", err)
 	}
-	defer checker.Close()
+	defer checker.Close() //nolint:errcheck
 
 	log.Info(ctx, "Starting database update")
 
@@ -343,7 +343,7 @@ func readEmailsFromFile(filename string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	defer file.Close()
+	defer file.Close() //nolint:errcheck
 
 	return readEmailsFromReader(file)
 }

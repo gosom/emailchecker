@@ -47,12 +47,12 @@ func New(dbPath string) (*Repository, error) {
 
 	writeDB, err := sql.Open("sqlite", connStr)
 	if err != nil {
-		readDB.Close()
+		_ = readDB.Close()
 		return nil, fmt.Errorf("failed to open database for writing: %w", err)
 	}
 
 	if err := testConnection(context.Background(), writeDB); err != nil {
-		readDB.Close()
+		_ = readDB.Close()
 
 		return nil, fmt.Errorf("failed to connect to database for writing: %w", err)
 	}
@@ -78,7 +78,7 @@ func New(dbPath string) (*Repository, error) {
 }
 
 func (r *Repository) Close() {
-	r.readDB.Close()
+	_ = r.readDB.Close()
 }
 
 func (r *Repository) IsDisposable(ctx context.Context, domain string) (bool, error) {
@@ -223,7 +223,7 @@ func (r *Repository) updateDomains(ctx context.Context, params updateDomainsPara
 	if err != nil {
 		return fmt.Errorf("could not begin transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer tx.Rollback() //nolint:errcheck
 
 	err = r.createDisposableDomainsTable(ctx, tx, newTable)
 	if err != nil {
@@ -234,7 +234,7 @@ func (r *Repository) updateDomains(ctx context.Context, params updateDomainsPara
 	if err != nil {
 		return fmt.Errorf("could not prepare insert for new table: %w", err)
 	}
-	defer stmt.Close()
+	defer stmt.Close() //nolint:errcheck
 
 	seen := make(map[string]struct{}, len(params.Domains))
 	for _, domain := range params.Domains {
@@ -321,7 +321,7 @@ func (r *Repository) init(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("could not begin transaction: %w", err)
 	}
-	defer tx.Rollback()
+	defer tx.Rollback() //nolint:errcheck
 
 	err = r.createMetadataTable(ctx, tx)
 	if err != nil {

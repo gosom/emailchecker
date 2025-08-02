@@ -23,7 +23,10 @@ func newParkedDomainChecker() *parkedDomainChecker {
 			continue
 		}
 
-		checker.ranger.Insert(cidranger.NewBasicRangerEntry(*network))
+		err = checker.ranger.Insert(cidranger.NewBasicRangerEntry(*network))
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	return &checker
