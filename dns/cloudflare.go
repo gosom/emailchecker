@@ -28,12 +28,15 @@ type Answer struct {
 }
 
 type Client struct {
-	httpClient *http.Client
+	httpClient  *http.Client
+	parkChecker *parkedDomainChecker
 }
 
 func New(netClient *http.Client) *Client {
+	pc := newParkedDomainChecker()
 	return &Client{
-		httpClient: netClient,
+		httpClient:  netClient,
+		parkChecker: pc,
 	}
 }
 
@@ -92,6 +95,9 @@ func (c *Client) GetDNSValidation(ctx context.Context, domain string) (*emailche
 			for _, ans := range reps.Answer {
 				if ans.Type == 1 {
 					result.ARecords = append(result.ARecords, ans.Data)
+					if !result.IsParked && c.parkChecker.IsParkedDomainIP(ans.Data) {
+						result.IsParked = true
+					}
 				}
 			}
 		}
@@ -111,7 +117,7 @@ func (c *Client) GetDNSValidation(ctx context.Context, domain string) (*emailche
 			for _, ans := range resp.Answer {
 				if ans.Type == 2 {
 					result.NSRecords = append(result.NSRecords, ans.Data)
-					if isParkedDomainNs(ans.Data) {
+					if !result.IsParked && c.parkChecker.IsParkedDomainNS(ans.Data) {
 						result.IsParked = true
 					}
 				}

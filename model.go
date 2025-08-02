@@ -3,29 +3,29 @@ package emailchecker
 import "time"
 
 type EmailPatternCheckResult struct {
-	ShortLocalPart            bool
-	HasRandomPattern          bool
-	TooManyConsecutiveNumbers bool
-	TooManySpecialChars       bool
+	ShortLocalPart            bool `json:"short_local_part"`
+	HasRandomPattern          bool `json:"has_random_pattern"`
+	TooManyConsecutiveNumbers bool `json:"too_many_consecutive_numbers"`
+	TooManySpecialChars       bool `json:"too_many_special_chars"`
 }
 
 type DNSValidationResult struct {
-	Domain      string
-	HasMX       bool
-	HasSPF      bool
-	HasDMARC    bool
-	IsParked    bool
-	ARecords    []string
-	NSRecords   []string
-	MXRecords   []MXRecord
-	SPFRecord   string
-	DMARCRecord string
+	Domain      string     `json:"domain"`
+	HasMX       bool       `json:"has_mx"`
+	HasSPF      bool       `json:"has_spf"`
+	HasDMARC    bool       `json:"has_dmarc"`
+	IsParked    bool       `json:"is_parked"`
+	ARecords    []string   `json:"a_records"`
+	NSRecords   []string   `json:"ns_records"`
+	MXRecords   []MXRecord `json:"mx_records"`
+	SPFRecord   string     `json:"spf_record"`
+	DMARCRecord string     `json:"dmarc_record"`
 }
 
 type MXRecord struct {
-	Value      string
-	Priority   int
-	Disposable bool
+	Value      string `json:"value"`
+	Priority   int    `json:"priority"`
+	Disposable bool   `json:"disposable"`
 }
 
 type DNSRecord struct {
@@ -35,21 +35,21 @@ type DNSRecord struct {
 }
 
 type EmailCheckResult struct {
-	Email       string
-	Disposable  SubCheckResult[bool]
-	WellKnown   SubCheckResult[bool]
-	Educational SubCheckResult[bool]
-	DNS         SubCheckResult[DNSValidationResult]
-	Elapsed     time.Duration
-	Pattern     SubCheckResult[EmailPatternCheckResult]
-	Analysis    *AnalysisReport
+	Email       string                                  `json:"email"`
+	Disposable  SubCheckResult[bool]                    `json:"disposable"`
+	WellKnown   SubCheckResult[bool]                    `json:"well_known"`
+	Educational SubCheckResult[bool]                    `json:"educational"`
+	DNS         SubCheckResult[DNSValidationResult]     `json:"dns"`
+	Elapsed     time.Duration                           `json:"elapsed"`
+	Pattern     SubCheckResult[EmailPatternCheckResult] `json:"pattern"`
+	Analysis    *AnalysisReport                         `json:"prediction"`
 }
 
 type SubCheckResult[T any] struct {
-	Checked bool
-	Value   T
-	Err     error
-	Elapsed time.Duration
+	Checked bool          `json:"checked"`
+	Value   T             `json:"value"`
+	Err     error         `json:"error"`
+	Elapsed time.Duration `json:"elapsed"`
 }
 
 type EmailCheckParams struct {
