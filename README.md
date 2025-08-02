@@ -36,6 +36,13 @@ Example: https://emailcheck-api.thexos.dev/check/test@gmail.com
 3. Run: `go mod tidy`
 4. Build: `go build -o checker cmd/email-checker/main.go`
 
+## Environment Variables
+
+
+- EMAIL_CHECKER_DB_PATH - Path to SQLite database file (default: checker.db)
+- ALLOWED_HOSTS - Comma-separated list of allowed hosts for API (default: localhost:8080)
+
+
 ## Usage
 
 ### Check single email
