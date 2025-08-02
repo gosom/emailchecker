@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Email Checker API</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="bg-gray-900 text-gray-300 font-mono min-h-screen p-6" x-data="emailChecker()">
+    <a href="https://github.com/gosom/emailchecker" 
+       class="fixed top-6 right-6 text-gray-400 hover:text-white transition-colors z-50" 
+       target="_blank" rel="noopener noreferrer">
+        <svg width="24" height="24" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 0C5.374 0 0 5.373 0 12 0 17.302 3.438 21.8 8.207 23.387c.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/>
+        </svg>
+    </a>
+
+    <div class="max-w-4xl mx-auto">
+        <h1 class="text-blue-400 text-4xl mb-4 font-semibold">email-checker-api</h1>
+        <p class="text-green-500 text-lg mb-10 font-medium"># Email validation and analysis REST API</p>
+        
+        <div class="terminal">
+            <div class="text-purple-400 mb-6 text-lg font-medium">$ email-checker-api --interactive</div>
+            <div class="text-gray-300 text-base mb-5">Type an email address and press Enter to validate it</div>
+            <div class="text-gray-400 text-base mb-8">
+                Shortcuts: <kbd class="kbd">Ctrl+K</kbd> to focus, <kbd class="kbd">Esc</kbd> to clear
+            </div>
+
+            <div class="flex items-center mb-8">
+                <span class="text-green-400 mr-4 text-lg font-semibold">email></span>
+                <div class="flex-1 relative">
+                    <input 
+                        type="email" 
+                        x-model="email"
+                        x-ref="emailInput"
+                        @keydown.enter="checkEmail()"
+                        @keydown.ctrl.k.prevent="$refs.emailInput.focus(); $refs.emailInput.select()"
+                        @keydown.escape="clearAll()"
+                        @focus="showSuggestions = !email"
+                        @blur="setTimeout(() => showSuggestions = false, 200)"
+                        @input="showSuggestions = false"
+                        placeholder="user@example.com" 
+                        class="bg-transparent border-none outline-none text-white w-full text-lg pr-8 font-medium"
+                        autocomplete="off" 
+                        spellcheck="false">
+                    
+                    <span x-show="!email && !$refs.emailInput.matches(':focus')" 
+                          class="terminal-cursor absolute right-2 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                        |
+                    </span>
+                    
+                    <div x-show="showSuggestions" 
+                         x-transition
+                         class="absolute top-full left-0 right-0 mt-2 bg-gray-800 border border-gray-600 rounded z-10 shadow-lg">
+                        <template x-for="(suggestion, index) in suggestions" :key="suggestion">
+                            <div @mousedown.prevent 
+                                 @click="selectSuggestion(suggestion)" 
+                                 class="p-4 text-base text-gray-300 hover:bg-gray-700 cursor-pointer transition-colors"
+                                 :class="{ 'border-b border-gray-700': index < suggestions.length - 1 }"
+                                 x-text="suggestion">
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </div>
+            
+            
+            <div x-show="result" x-transition class="space-y-6">
+                <div class="text-gray-300 text-base mb-4 font-medium">Result:</div>
+                
+                <div x-show="result?.prediction" class="prediction-border" :class="getBorderClass(result?.prediction?.risk_level)">
+                    <div class="flex items-center gap-4 mb-4">
+                        <span class="text-3xl" x-text="getRiskEmoji(result?.prediction?.risk_level)"></span>
+                        <span class="font-medium text-base" 
+                              :class="getRiskClass(result?.prediction?.risk_level)"
+                              x-text="result?.prediction?.risk_level?.toUpperCase() + ' RISK'">
+                        </span>
+                        <span class="text-gray-400 text-base" 
+                              x-text="'(' + Math.round((result?.prediction?.score || 0) * 100) + '% disposable)'">
+                        </span>
+                    </div>
+                    <div class="text-gray-300 text-base mb-4" 
+                         x-text="result?.prediction?.reasons?.[0] || 'No specific reasons provided'">
+                    </div>
+                    <div class="text-base text-gray-400" x-html="getQuickSummary()"></div>
+                </div>
+                
+                <div x-show="responseTime" class="text-base text-gray-400">
+                    Response time: <span x-text="responseTime"></span>ms
+                </div>
+                
+                <div>
+                    <div class="text-gray-300 text-base mb-4 font-medium">Full response:</div>
+                    <div class="json-output">
+                        <button @click="showJson = !showJson" 
+                                class="text-blue-400 hover:underline text-base mb-4 block font-medium">
+                            <span x-text="showJson ? 'Hide' : 'Show'"></span> full response ↓
+                        </button>
+                        <div x-show="showJson" x-transition x-html="formatJSON(result)"></div>
+                    </div>
+                </div>
+                
+                <div class="flex gap-6 mt-8">
+                    <button @click="copyToClipboard()" 
+                            class="text-blue-400 hover:underline text-base font-medium">
+                        📋 Copy JSON
+                    </button>
+                    <button @click="clearAll()" 
+                            class="text-gray-400 hover:underline text-base font-medium">
+                        🗑️ Clear
+                    </button>
+                </div>
+            </div>
+            
+            <div x-show="loading" class="text-yellow-500">
+                <span class="loading-spinner text-xl">⠋</span> 
+                <span class="loading-text text-lg font-medium">Analyzing email...</span>
+            </div>
+            
+            <div x-show="error" x-transition class="text-red-400">
+                <div class="border-l-4 border-red-500 pl-6">
+                    <div class="text-red-400 text-lg mb-3 font-semibold">❌ Error</div>
+                    <div class="text-gray-300 text-base mb-4" x-text="error"></div>
+                    <button @click="checkEmail()" 
+                            class="text-blue-400 hover:underline text-base font-medium">
+                        ↻ Try again
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <section class="mt-16 grid md:grid-cols-2 gap-8">
+            <div class="example-block">
+                <h3 class="text-green-400 text-lg mb-5 font-semibold">✓ What we check</h3>
+                <ul class="text-base text-gray-300 space-y-3">
+                    <li>• Disposable email detection</li>
+                    <li>• DNS and MX record validation</li>
+                    <li>• Suspicious pattern analysis</li>
+                    <li>• Educational domain verification</li>
+                    <li>• Risk scoring with reasoning</li>
+                    <li>• Parked domain detection</li>
+                </ul>
+            </div>
+            
+            <div class="example-block">
+                <h3 class="text-yellow-400 text-lg mb-5 font-semibold">⚡ API Usage</h3>
+                <div class="code">
+<span class="text-gray-400 text-base"># Check any email via GET request</span>
+<div class="text-blue-300 text-base mt-3 mb-4 font-medium">GET https://emailcheck-api.thexos.dev/check/{email}</div>
+                </div>
+            </div>
+        </section>
+
+        <div class="mt-16 text-center">
+            <div class="bg-gradient-to-r from-purple-900/30 to-blue-900/30 border border-purple-500/30 rounded-lg p-8">
+                <h3 class="text-xl font-semibold text-white mb-4">
+                    ⭐ Love this project? Give a star!
+                </h3>
+                <p class="text-gray-300 text-base mb-6">
+                    This project is open source and free to use. Your support helps us continue improving it!
+                </p>
+                <div class="flex justify-center gap-4 flex-wrap">
+                    <a href="https://github.com/gosom/emailchecker" 
+                       target="_blank" 
+                       rel="noopener noreferrer"
+                       class="github-star-btn">
+                        <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24" class="mr-2">
+                            <path d="M12 0C5.374 0 0 5.373 0 12 0 17.302 3.438 21.8 8.207 23.387c.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23A11.509 11.509 0 0112 5.803c1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576C20.566 21.797 24 17.3 24 12c0-6.627-5.373-12-12-12z"/>
+                        </svg>
+                        Star on GitHub
+                    </a>
+                    <a href="https://github.com/gosom/emailchecker/issues" 
+                       target="_blank" 
+                       rel="noopener noreferrer"
+                       class="github-issue-btn">
+                        <svg width="16" height="16" fill="currentColor" viewBox="0 0 24 24" class="mr-2">
+                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                        </svg>
+                        Report Issues
+                    </a>
+                </div>
+                
+                <div class="mt-6 flex justify-center gap-6 flex-wrap">
+                    <div class="github-stat">
+                        <img src="https://img.shields.io/github/stars/gosom/emailchecker?style=social" alt="GitHub stars" class="inline-block">
+                    </div>
+                    <div class="github-stat">
+                        <img src="https://img.shields.io/github/forks/gosom/emailchecker?style=social" alt="GitHub forks" class="inline-block">
+                    </div>
+                    <div class="github-stat">
+                        <img src="https://img.shields.io/github/watchers/gosom/emailchecker?style=social" alt="GitHub watchers" class="inline-block">
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-12 text-center">
+            <div class="inline-block bg-yellow-900 bg-opacity-20 border border-yellow-700 rounded px-6 py-4">
+                <span class="text-yellow-400 text-base">
+                    ⚠️ Rate limited to 100 requests/hour for demo purposes
+                </span>
+            </div>
+        </div>
+        
+        <footer class="mt-20 pt-8 border-t border-gray-700 text-center text-gray-500 text-base">
+            <p class="mb-4">Open source and community-driven 🚀</p>
+            <p class="text-sm">
+                <a href="https://github.com/gosom/emailchecker/blob/main/LICENSE" class="text-blue-400 hover:underline">MIT License</a>
+            </p>
+        </footer>
+    </div>
+    
+    <div x-show="notification" 
+         x-transition.opacity.duration.300ms
+         x-text="notification"
+         class="copy-notification">
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html>

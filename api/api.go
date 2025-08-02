@@ -3,11 +3,14 @@ package api
 import (
 	"context"
 	"fmt"
+	"io/fs"
+	"net/http"
 
 	"emailchecker/api/handlers"
 	"emailchecker/api/handlers/middleware"
 	"emailchecker/pkg/httpext"
 	"emailchecker/pkg/httpmiddleware"
+	"emailchecker/static"
 
 	"github.com/go-chi/chi/v5"
 
@@ -66,4 +69,24 @@ func (s *Server) setupRoutes() {
 
 	s.router.Get("/health", httpmiddleware.Handler(s.opsHandler.Health))
 	s.router.Get("/check/{email}", httpmiddleware.Handler(s.checkHandler.CheckEmail))
+
+	staticFS, err := fs.Sub(static.StaticFiles, "src")
+	if err != nil {
+		panic(err)
+	}
+
+	s.router.Get("/", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		http.ServeFileFS(w, r, staticFS, "index.html")
+	})
+
+	s.router.Get("/styles.css", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/css; charset=utf-8")
+		http.ServeFileFS(w, r, staticFS, "styles.css")
+	})
+
+	s.router.Get("/script.js", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+		http.ServeFileFS(w, r, staticFS, "script.js")
+	})
 }

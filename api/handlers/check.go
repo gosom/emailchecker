@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"net/http"
+	"net/url"
 
 	"emailchecker"
 
@@ -21,8 +22,13 @@ func NewCheckHandler(checker *emailchecker.EmailChecker) *CheckHandler {
 }
 
 func (h *CheckHandler) CheckEmail(_ http.ResponseWriter, r *http.Request) (any, *errorsext.APIError) {
+	email, err := url.QueryUnescape(chi.URLParam(r, "email"))
+	if err != nil {
+		return nil, errorsext.BadRequest("Invalid email parameter: failed to decode URL")
+	}
+
 	params := emailchecker.EmailCheckParams{
-		Email: chi.URLParam(r, "email"),
+		Email: email,
 	}
 
 	result, err := h.checker.Check(r.Context(), params)
