@@ -6,6 +6,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"emailchecker/pkg/log"
 )
 
 type EmailChecker struct {
@@ -75,8 +77,49 @@ func (e *EmailChecker) Check(ctx context.Context, params EmailCheckParams) (Emai
 	return result, nil
 }
 
-func (e *EmailChecker) UpdateDisposableDB(ctx context.Context) error {
+func (e *EmailChecker) UpdateDB(ctx context.Context) error {
+	t0 := time.Now().UTC()
+
+	if err := e.educationalSvc.UpdateEducationalDomains(ctx); err != nil {
+		return err
+	}
+
+	t1 := time.Now().UTC()
+
+	log.Info(ctx, "Educational domains updated", "elapsed", t1.Sub(t0).String())
+
+	if err := e.wellKnownSvc.UpdateWellKnownList(ctx); err != nil {
+		return err
+	}
+
+	t2 := time.Now().UTC()
+
+	log.Info(ctx, "Well-known domains updated", "elapsed", t2.Sub(t1).String())
+
+	if err := e.disposableSvc.UpdateDisposableList(ctx); err != nil {
+		return err
+	}
+
+	t3 := time.Now().UTC()
+	log.Info(ctx, "Disposable domains updated", "elapsed", t3.Sub(t2).String())
+
 	return nil
+}
+
+func (e *EmailChecker) PeriodicUpdate(ctx context.Context, interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			if err := e.UpdateDB(ctx); err != nil {
+				log.ErrorWithMessage(ctx, "Failed to update email checker database", err)
+			}
+		case <-ctx.Done():
+			return
+		}
+	}
 }
 
 func (e *EmailChecker) performDisposableCheck(ctx context.Context, params EmailCheckParams, wg *sync.WaitGroup, result *EmailCheckResult, mu *sync.Mutex, domain string) {

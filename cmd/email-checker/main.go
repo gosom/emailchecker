@@ -21,6 +21,9 @@ import (
 	"emailchecker/dns"
 	"emailchecker/edu"
 	"emailchecker/emailpattern"
+	"emailchecker/pkg/app"
+	"emailchecker/pkg/httpext"
+	"emailchecker/pkg/log"
 	"emailchecker/sqlite"
 	"emailchecker/wellknown"
 )
@@ -56,11 +59,24 @@ func main() {
 					&cli.StringFlag{
 						Name:    "port",
 						Aliases: []string{"p"},
-						Value:   "8080",
+						Value:   ":8080",
 						Usage:   "Port to run the server on",
+					},
+					&cli.StringFlag{
+						Name:    "disable-db-update",
+						Aliases: []string{"d"},
+						Value:   "false",
+						Usage:   "If true, disables periodic database updates",
 					},
 				},
 				Action: startServer,
+			},
+			{
+				Name:    "update",
+				Aliases: []string{"u"},
+				Usage:   "Update database ",
+				Flags:   []cli.Flag{},
+				Action:  updateDatabase,
 			},
 		},
 	}
@@ -69,6 +85,112 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
+}
+
+func checkEmails(c *cli.Context) error {
+	checker, err := createChecker()
+	if err != nil {
+		return fmt.Errorf("failed to create checker: %v", err)
+	}
+	defer checker.Close()
+
+	var emails []string
+
+	if c.String("file") != "" {
+		emails, err = readEmailsFromFile(c.String("file"))
+		if err != nil {
+			return fmt.Errorf("failed to read emails from file: %v", err)
+		}
+	} else if c.Bool("stdin") {
+		emails, err = readEmailsFromStdin()
+		if err != nil {
+			return fmt.Errorf("failed to read emails from stdin: %v", err)
+		}
+	} else if c.NArg() > 0 {
+		emails = c.Args().Slice()
+	} else {
+		return fmt.Errorf("please provide an email via argument, --file, or --stdin")
+	}
+
+	ctx := context.Background()
+
+	var results []emailchecker.EmailCheckResult
+	if c.String("file") != "" {
+		results, err = processEmailsConcurrently(ctx, checker, emails)
+		if err != nil {
+			return err
+		}
+	} else {
+		results, err = processEmailsSequentially(ctx, checker, emails)
+		if err != nil {
+			return err
+		}
+	}
+
+	output, err := json.MarshalIndent(results, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal results: %v", err)
+	}
+
+	fmt.Println(string(output))
+	return nil
+}
+
+func startServer(c *cli.Context) error {
+	checker, err := createChecker()
+	if err != nil {
+		return fmt.Errorf("failed to create checker: %v", err)
+	}
+	defer checker.Close()
+
+	srvOpts := []httpext.Option{
+		httpext.WithAddr(c.String("port")),
+	}
+
+	srv := api.NewServer(checker, srvOpts...)
+
+	application := app.New(context.Background())
+
+	updater := &dbUpdater{
+		checker: checker,
+	}
+
+	application.AddWebserver(srv)
+	if !c.Bool("disable-db-update") {
+		application.Exec(updater)
+	}
+
+	return application.Run()
+}
+
+type dbUpdater struct {
+	checker *emailchecker.EmailChecker
+}
+
+func (u *dbUpdater) Run(ctx context.Context) error {
+	log.Info(ctx, "Starting periodic database updater")
+	const interval = 13 * time.Hour
+
+	u.checker.PeriodicUpdate(ctx, interval)
+
+	log.Warn(ctx, "updater stopped")
+
+	return nil
+}
+
+func updateDatabase(c *cli.Context) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+
+	checker, err := createChecker()
+	if err != nil {
+		return fmt.Errorf("failed to create checker: %v", err)
+	}
+	defer checker.Close()
+
+	log.Info(ctx, "Starting database update")
+
+	return checker.UpdateDB(ctx)
 }
 
 func createChecker() (*emailchecker.EmailChecker, error) {
@@ -119,55 +241,6 @@ func createChecker() (*emailchecker.EmailChecker, error) {
 	}
 
 	return emailchecker.New(&cfg)
-}
-
-func checkEmails(c *cli.Context) error {
-	checker, err := createChecker()
-	if err != nil {
-		return fmt.Errorf("failed to create checker: %v", err)
-	}
-	defer checker.Close()
-
-	var emails []string
-
-	if c.String("file") != "" {
-		emails, err = readEmailsFromFile(c.String("file"))
-		if err != nil {
-			return fmt.Errorf("failed to read emails from file: %v", err)
-		}
-	} else if c.Bool("stdin") {
-		emails, err = readEmailsFromStdin()
-		if err != nil {
-			return fmt.Errorf("failed to read emails from stdin: %v", err)
-		}
-	} else if c.NArg() > 0 {
-		emails = c.Args().Slice()
-	} else {
-		return fmt.Errorf("please provide an email via argument, --file, or --stdin")
-	}
-
-	ctx := context.Background()
-
-	var results []emailchecker.EmailCheckResult
-	if c.String("file") != "" {
-		results, err = processEmailsConcurrently(ctx, checker, emails)
-		if err != nil {
-			return err
-		}
-	} else {
-		results, err = processEmailsSequentially(ctx, checker, emails)
-		if err != nil {
-			return err
-		}
-	}
-
-	output, err := json.MarshalIndent(results, "", "  ")
-	if err != nil {
-		return fmt.Errorf("failed to marshal results: %v", err)
-	}
-
-	fmt.Println(string(output))
-	return nil
 }
 
 func processEmailsSequentially(ctx context.Context, checker *emailchecker.EmailChecker, emails []string) ([]emailchecker.EmailCheckResult, error) {
@@ -263,17 +336,6 @@ func processEmailsConcurrently(ctx context.Context, checker *emailchecker.EmailC
 	}
 
 	return results, nil
-}
-
-func startServer(c *cli.Context) error {
-	checker, err := createChecker()
-	if err != nil {
-		return fmt.Errorf("failed to create checker: %v", err)
-	}
-	defer checker.Close()
-
-	server := api.NewServer(checker, c.String("port"))
-	return server.Start()
 }
 
 func readEmailsFromFile(filename string) ([]string, error) {

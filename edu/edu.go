@@ -1,6 +1,8 @@
 package edu
 
-import "context"
+import (
+	"context"
+)
 
 type repo interface {
 	IsEducationalDomain(ctx context.Context, domain string) (bool, error)

@@ -1,18 +1,24 @@
 package api
 
 import (
-	"encoding/json"
+	"context"
 	"fmt"
-	"log"
-	"net/http"
-	"time"
+
+	"emailchecker/api/handlers"
+	"emailchecker/pkg/httpext"
+	"emailchecker/pkg/httpmiddleware"
+
+	"github.com/go-chi/chi/v5"
 
 	"emailchecker"
 )
 
 type Server struct {
-	checker *emailchecker.EmailChecker
-	port    string
+	opsHandler   *handlers.OpsHandler
+	checkHandler *handlers.CheckHandler
+
+	httpServer *httpext.HTTPServer
+	router     chi.Router
 }
 
 type ErrorResponse struct {
@@ -20,78 +26,42 @@ type ErrorResponse struct {
 	Message string `json:"message,omitempty"`
 }
 
-func NewServer(checker *emailchecker.EmailChecker, port string) *Server {
-	return &Server{
-		checker: checker,
-		port:    port,
-	}
-}
+func NewServer(checker *emailchecker.EmailChecker, opts ...httpext.Option) *Server {
+	ans := Server{
+		router: chi.NewRouter(),
 
-func (s *Server) Start() error {
-	mux := http.NewServeMux()
-	mux.HandleFunc("/check", s.handleEmailCheck)
-	mux.HandleFunc("/health", s.handleHealth)
-
-	server := &http.Server{
-		Addr:           ":" + s.port,
-		Handler:        mux,
-		ReadTimeout:    90 * time.Second,
-		WriteTimeout:   90 * time.Second,
-		IdleTimeout:    120 * time.Second,
-		MaxHeaderBytes: 1 << 20, // 1 MB
+		opsHandler:   handlers.NewOpsHandler(),
+		checkHandler: handlers.NewCheckHandler(checker),
 	}
 
-	log.Printf("Starting email checker API server on port %s", s.port)
-	return server.ListenAndServe()
-}
+	ans.setupRoutes()
 
-func (s *Server) handleEmailCheck(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		s.writeError(w, http.StatusMethodNotAllowed, "Method not allowed")
-		return
-	}
-
-	email := r.URL.Query().Get("email")
-	if email == "" {
-		s.writeError(w, http.StatusBadRequest, "email parameter is required")
-		return
-	}
-
-	ctx := r.Context()
-	params := emailchecker.EmailCheckParams{
-		Email: email,
-	}
-
-	result, err := s.checker.Check(ctx, params)
+	httpServer, err := httpext.New(
+		ans.router,
+		opts...,
+	)
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, fmt.Sprintf("Failed to check email: %v", err))
-		return
+		panic(fmt.Sprintf("failed to create HTTP server: %v", err))
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
+	ans.httpServer = httpServer
 
-	if err := json.NewEncoder(w).Encode(result); err != nil {
-		log.Printf("Failed to encode response: %v", err)
-	}
+	return &ans
 }
 
-func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+func (s *Server) Run(ctx context.Context) error {
+	return s.httpServer.Run(ctx)
 }
 
-func (s *Server) writeError(w http.ResponseWriter, statusCode int, message string) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(statusCode)
+func (s *Server) setupRoutes() {
+	s.router.Use(httpmiddleware.Logging(
+		httpmiddleware.SkipRequestBodyLogging(),
+	),
+	)
 
-	errorResp := ErrorResponse{
-		Error:   http.StatusText(statusCode),
-		Message: message,
-	}
+	s.router.NotFound(httpmiddleware.Handler(s.opsHandler.NotFound))
+	s.router.MethodNotAllowed(httpmiddleware.Handler(s.opsHandler.MethodNotAllowed))
 
-	if err := json.NewEncoder(w).Encode(errorResp); err != nil {
-		log.Printf("Failed to encode error response: %v", err)
-	}
+	s.router.Get("/health", httpmiddleware.Handler(s.opsHandler.Health))
+	s.router.Get("/check/{email}", httpmiddleware.Handler(s.checkHandler.CheckEmail))
 }
