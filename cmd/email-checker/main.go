@@ -72,7 +72,12 @@ func main() {
 }
 
 func createChecker() (*emailchecker.EmailChecker, error) {
-	repo, err := sqlite.New("checker.db")
+	dbpath := os.Getenv("EMAIL_CHECKER_DB_PATH")
+	if dbpath == "" {
+		dbpath = "checker.db"
+	}
+
+	repo, err := sqlite.New(dbpath)
 	if err != nil {
 		return nil, err
 	}
